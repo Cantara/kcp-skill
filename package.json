@@ -1,15 +1,28 @@
 {
   "name": "@cantara/kcp-skill",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Conventions, linter, conformance vectors, and a curated library for governed KCP skills (kind: skill + action_scope, KCP v0.26 §4.3a)",
   "type": "module",
   "license": "Apache-2.0",
-  "bin": { "kcp-skill-lint": "bin/lint.mjs" },
-  "files": ["bin", "skills", "vectors", "README.md", "PROFILE.md", "LICENSE"],
+  "bin": {
+    "kcp-skill-lint": "bin/lint.mjs"
+  },
+  "files": [
+    "bin",
+    "skills",
+    "vectors",
+    "README.md",
+    "PROFILE.md",
+    "LICENSE"
+  ],
   "scripts": {
     "lint": "node bin/lint.mjs skills/library.yaml",
     "test": "node bin/lint.mjs --vectors && node bin/lint.mjs skills/library.yaml"
   },
-  "engines": { "node": ">=20" },
-  "dependencies": { "js-yaml": "^4.1.0" }
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
 }

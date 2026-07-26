@@ -3,7 +3,7 @@
 # skills/library.yaml and is reachable as a unit here.
 kcp_version: "0.26"
 project: kcp-skill
-version: 0.1.0
+version: 0.2.0
 language: en
 
 trust:
