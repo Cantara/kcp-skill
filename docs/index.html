@@ -107,6 +107,7 @@
     <span class="chip" data-v="04-bad-field-types">04 · bad-field-types</span>
     <span class="chip" data-v="05-non-skill-kinds-untouched">05 · non-skill-kinds</span>
     <span class="chip runall" id="runAll">▶ run all vectors</span>
+    <span class="chip" id="shareBtn" title="copy a link that restores this manifest">🔗 copy link</span>
   </div>
 
   <div class="grid">
@@ -119,6 +120,15 @@
       <div class="summary" id="summary"></div>
       <div class="findings" id="findings"></div>
       <div class="gate" id="gate"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="hd"><span>▶ enact — the envelope, live</span><span id="enactHint" style="color:var(--faint);text-transform:none;letter-spacing:0"></span></div>
+    <div style="padding:14px;display:grid;gap:10px">
+      <div style="color:var(--muted);font-size:13.5px">Fire a tool call at the manifest's first skill. Anything outside its <code style="color:var(--teal-soft);font-family:var(--mono)">action_scope</code> is blocked — the fail-closed runtime proxy, playable. Edit the envelope above and the verdicts change.</div>
+      <div id="enactBtns" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <div id="enactOut" style="display:grid;gap:6px"></div>
     </div>
   </div>
 
@@ -322,10 +332,12 @@ function render(){
     (s.errors===0 ? `<span class="pill ok">exit 0 · passes</span>` : `<span class="pill e on">exit 1 · fails</span>`);
   // findings
   $("findings").innerHTML = findings.length
-    ? findings.map(f=>`<div class="f"><span class="lvl ${f.level}">${f.level}</span><span class="code">${f.code}</span><span class="msg"><span class="u">${esc(f.unit||"-")}</span> — ${esc(f.message)}</span></div>`).join("")
+    ? findings.map(f=>`<div class="f"><span class="lvl ${f.level}">${f.level}</span><a class="code" href="https://github.com/Cantara/kcp-skill/blob/main/PROFILE.md" target="_blank" rel="noopener" style="text-decoration:none">${f.code}</a><span class="msg"><span class="u">${esc(f.unit||"-")}</span> — ${esc(f.message)}${FIX[f.code]?`<span style="display:block;color:var(--faint);font-size:12px;margin-top:2px">→ ${esc(FIX[f.code])}</span>`:""}</span></div>`).join("")
     : `<div class="clean">✓ no findings — every governed skill here is well-formed &amp; fail-closed</div>`;
   // fail-closed gate card (per skill unit)
   renderGate(doc, parseErr);
+  renderEnact(doc, parseErr);
+  updateHash();
 }
 
 function renderGate(doc, parseErr){
@@ -384,8 +396,7 @@ $("runAll").addEventListener('click',()=>{
 
 let t=null;
 ed.addEventListener('input',()=>{ clearVectorMatch(); clearTimeout(t); t=setTimeout(render,180); });
-ed.value = DEFAULT_MANIFEST;
-render();
+// initial load deferred to the end (after FIX / enact / permalink helpers are defined)
 
 // ── ✨ draft a governed skill — window.claude (bring-your-own-key, direct to Anthropic) ──
 window.claude = {
@@ -441,6 +452,51 @@ $("genBtn").addEventListener("click", async ()=>{
   }catch(e){ st.textContent="✗ "+e.message; }
   finally{ $("genBtn").disabled=false; }
 });
+
+// ── fix hints (per rule) ──
+const FIX = {SK001:"add the missing field to the unit",SK002:"add an action_scope block — even empty is better than none",SK003:"make each action_scope field a list of non-empty strings",SK004:"use a repo-relative path — drop the leading / and any ..",SK005:"remove it, or move it under tools / paths / capabilities",SK006:"add 'agent' to audience",SK007:"nothing to fix — empty capabilities is the fail-closed default; add one only to make the skill grantable",SK008:"phrase intent as a question, or start it with a verb",PARSE:"fix the YAML so it parses and has a top-level units: list"};
+
+// ── shareable permalinks (manifest encoded in the URL hash) ──
+function encodeHash(){ try{ return btoa(unescape(encodeURIComponent(ed.value))); }catch(e){ return ""; } }
+function decodeHash(){ const m=/[#&]m=([^&]+)/.exec(location.hash); if(!m) return null; try{ return decodeURIComponent(escape(atob(decodeURIComponent(m[1])))); }catch(e){ return null; } }
+let hashT=null;
+function updateHash(){ clearTimeout(hashT); hashT=setTimeout(()=>{ const b=encodeHash(); if(b) history.replaceState(null,"","#m="+b); },400); }
+$("shareBtn").addEventListener("click",()=>{ const b=encodeHash(); history.replaceState(null,"","#m="+b); (navigator.clipboard?.writeText(location.href)||Promise.resolve()).then(()=>{ const el=$("shareBtn"); el.textContent="✓ copied"; setTimeout(()=>el.textContent="🔗 copy link",1400); }); });
+
+// ── enactment mini-sim — fire tool calls at the first skill's envelope ──
+const CALLS = [
+  {label:"read pom.xml", tool:"read", path:"pom.xml"},
+  {label:"edit CHANGELOG.md", tool:"edit", path:"CHANGELOG.md"},
+  {label:"write src/main.js", tool:"write", path:"src/main.js"},
+  {label:"git tag v1.2.0", tool:"git"},
+  {label:"deploy · cap:deploy", tool:"bash", capability:"deploy"},
+  {label:"release · cap:release", tool:"bash", capability:"release"}
+];
+function globToRe(g){ return new RegExp("^"+g.split(/(\*\*|\*)/).map(s=> s==="**"?".*" : s==="*"?"[^/]*" : s.replace(/[.+^${}()|[\]\\?]/g,"\\$&")).join("")+"$"); }
+function firstSkillScope(doc){ if(!doc||!Array.isArray(doc.units)) return null; const u=doc.units.find(x=>x&&x.kind==="skill"); if(!u) return null; const sc=(u.action_scope&&typeof u.action_scope==="object"&&!Array.isArray(u.action_scope))?u.action_scope:null; return {id:(typeof u.id==="string"&&u.id)?u.id:"(skill)",scope:sc}; }
+function evalCall(scope,call){
+  if(!scope) return {ok:false,why:"no action_scope — nothing is enacted (fail-closed)"};
+  const tools=Array.isArray(scope.tools)?scope.tools:[], paths=Array.isArray(scope.paths)?scope.paths:[], caps=Array.isArray(scope.capabilities)?scope.capabilities:[];
+  if(!tools.includes(call.tool)) return {ok:false,why:`tool '${call.tool}' not in envelope`};
+  if(call.path && !paths.some(p=>{try{return globToRe(String(p)).test(call.path);}catch(e){return false;}})) return {ok:false,why:`path '${call.path}' not in paths`};
+  if(call.capability && !caps.includes(call.capability)) return {ok:false,why:caps.length?`capability '${call.capability}' not granted`:`capability '${call.capability}' — none granted (fail-closed)`};
+  return {ok:true,why:"within the envelope"};
+}
+function renderEnact(doc,parseErr){
+  const btns=$("enactBtns"), out=$("enactOut"), hint=$("enactHint");
+  if(parseErr){ btns.innerHTML=""; out.innerHTML=""; hint.textContent="fix the manifest first"; return; }
+  const fs=firstSkillScope(doc);
+  hint.textContent = fs ? (fs.scope?`against ${fs.id}'s action_scope`:`${fs.id} has no envelope`) : "no skill to enact";
+  btns.innerHTML = CALLS.map((c,i)=>`<span class="chip" data-call="${i}">${c.label}</span>`).join("");
+  btns.querySelectorAll("[data-call]").forEach(b=>b.addEventListener("click",()=>{
+    const c=CALLS[+b.dataset.call], r=evalCall(fs&&fs.scope,c);
+    out.innerHTML = `<div class="unit"><span class="uid">${c.tool}${c.path?" "+c.path:""}${c.capability?" · "+c.capability:""}</span><span class="badge ${r.ok?'grant':'closed'}">${r.ok?'✅ allowed':'❌ blocked'}</span><span class="why">${r.why}</span></div>` + out.innerHTML;
+  }));
+}
+
+// ── initial load (hash-restored manifest, else default) ──
+ed.value = decodeHash() || DEFAULT_MANIFEST;
+render();
 </script>
 </body>
 </html>
