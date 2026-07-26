@@ -44,6 +44,10 @@ asset is a curated, versioned library of manifests — here, of governed skills.
 
 ## Quick start
 
+**▶ Try it live — no install:** the [**kcp-skill playground**](https://cantara.github.io/kcp-skill/) runs this exact
+linter (`bin/lint.mjs`'s `lintManifest`) in your browser. Edit a manifest, load a conformance vector,
+and watch `action_scope` fail closed.
+
 ```bash
 # Lint the skill units in a manifest
 node bin/lint.mjs path/to/knowledge.yaml
