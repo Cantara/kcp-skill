@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kcp-skill · playground</title>
+<meta name="description" content="Lint governed KCP skills in your browser — the real kcp-skill linter (bin/lint.mjs), running live against the conformance vectors.">
+<script src="js-yaml.min.js"></script>
+<style>
+  :root{
+    --fog-0:#0a0f18; --fog-1:#0e1522; --panel:#141d2c; --panel-2:#0f1826; --line:#26344a;
+    --ink:#eef2f8; --muted:#9aabc2; --faint:#6b7c94;
+    --sun:#ffbf47; --sun-deep:#f5a623; --teal:#2dd4bf; --teal-soft:#7ee7d8;
+    --err:#ff6b6b; --warn:#ffbf47; --info:#5fb3ff; --ok:#2dd4bf;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:
+     radial-gradient(1100px 640px at 82% -10%, rgba(255,191,71,.09), transparent 60%),
+     radial-gradient(820px 560px at 4% 2%, rgba(45,212,191,.07), transparent 55%),
+     var(--fog-0);
+    color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.55}
+  .wrap{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
+  header{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+  .mark{width:40px;height:40px;border-radius:10px;flex:0 0 auto;position:relative;
+    background:conic-gradient(from 210deg,var(--teal),#12a594,#0b7c70,var(--teal-soft),var(--teal));
+    box-shadow:0 0 0 1px rgba(45,212,191,.35),0 6px 20px rgba(45,212,191,.25)}
+  .mark::after{content:"";position:absolute;inset:11px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#fff,rgba(255,255,255,.15) 45%,transparent 60%),var(--fog-1)}
+  h1{margin:0;font-size:20px;letter-spacing:.10em;text-transform:uppercase;font-weight:700}
+  h1 .a{color:var(--teal)}
+  .sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+  .lede{color:var(--muted);font-size:14.5px;max-width:80ch;margin:18px 0 4px}
+  .lede b{color:var(--ink)} .lede code{color:var(--teal-soft);font-family:var(--mono);font-size:.92em}
+  .vectors{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 6px;align-items:center}
+  .vlabel{color:var(--faint);font-size:11px;letter-spacing:.09em;text-transform:uppercase;margin-right:2px}
+  .chip{cursor:pointer;background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12.5px;color:var(--muted);transition:.13s;font-family:var(--mono)}
+  .chip:hover{border-color:var(--teal);color:var(--ink)}
+  .chip.runall{border-color:var(--sun-deep);color:var(--sun)} .chip.runall:hover{border-color:var(--sun)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .card .hd{padding:9px 14px;border-bottom:1px solid var(--line);font-size:12px;letter-spacing:.05em;
+    text-transform:uppercase;color:var(--faint);display:flex;justify-content:space-between;align-items:center}
+  textarea{width:100%;min-height:430px;resize:vertical;border:0;outline:0;background:var(--panel-2);
+    color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.5;padding:14px;tab-size:2}
+  .summary{display:flex;gap:8px;padding:12px 14px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  .pill{font-family:var(--mono);font-size:12.5px;padding:3px 10px;border-radius:8px;border:1px solid var(--line)}
+  .pill.e{color:var(--err);border-color:rgba(255,107,107,.4)} .pill.e.on{background:rgba(255,107,107,.12)}
+  .pill.w{color:var(--warn);border-color:rgba(255,191,71,.4)} .pill.w.on{background:rgba(255,191,71,.10)}
+  .pill.i{color:var(--info);border-color:rgba(95,179,255,.4)} .pill.i.on{background:rgba(95,179,255,.10)}
+  .pill.ok{color:var(--ok);border-color:rgba(45,212,191,.4);background:rgba(45,212,191,.10)}
+  .findings{padding:6px 8px;min-height:120px;max-height:340px;overflow:auto}
+  .f{display:grid;grid-template-columns:64px 58px 1fr;gap:8px;padding:8px 8px;border-radius:8px;
+    font-size:13px;align-items:start}
+  .f:hover{background:rgba(255,255,255,.02)}
+  .lvl{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding-top:1px}
+  .lvl.error{color:var(--err)} .lvl.warning{color:var(--warn)} .lvl.info{color:var(--info)}
+  .code{font-family:var(--mono);font-size:12px;color:var(--teal-soft)}
+  .msg{color:var(--muted)} .msg .u{color:var(--ink);font-family:var(--mono);font-size:.92em}
+  .clean{padding:26px 14px;text-align:center;color:var(--ok);font-family:var(--mono);font-size:13px}
+  .vmatch{font-family:var(--mono);font-size:12px}
+  .vmatch.ok{color:var(--ok)} .vmatch.bad{color:var(--err)}
+  .gate{margin:0;padding:12px 14px;border-top:1px solid var(--line)}
+  .gate h4{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .unit{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;border-top:1px dashed rgba(38,52,74,.6)}
+  .unit:first-of-type{border-top:0}
+  .uid{font-family:var(--mono);color:var(--ink);font-size:12.5px}
+  .badge{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .badge.grant{color:#0a0f18;background:var(--teal)} .badge.closed{color:var(--sun);border:1px solid rgba(255,191,71,.5)}
+  .badge.ungov{color:var(--warn);border:1px solid rgba(255,191,71,.4)}
+  .gate .why{color:var(--faint);font-size:12px;margin-left:auto}
+  details.legend{margin-top:16px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:2px 14px}
+  details.legend summary{cursor:pointer;padding:10px 0;color:var(--muted);font-size:13px;font-weight:600}
+  .rule{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:6px 0;font-size:13px;border-top:1px dashed rgba(38,52,74,.6)}
+  .rule .rc{font-family:var(--mono);font-size:12px}
+  .rc.e{color:var(--err)} .rc.w{color:var(--warn)} .rc.i{color:var(--info)}
+  .foot{margin-top:26px;color:var(--faint);font-size:12.5px;line-height:1.7;border-top:1px solid var(--line);padding-top:14px}
+  .foot a{color:var(--teal-soft);text-decoration:none} .foot a:hover{text-decoration:underline}
+  .badge-live{font-family:var(--mono);font-size:11px;color:var(--ok);border:1px solid rgba(45,212,191,.4);
+    border-radius:999px;padding:3px 10px;background:rgba(45,212,191,.08)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="mark" aria-hidden="true"></div>
+    <div style="flex:1 1 auto">
+      <h1>kcp-skill <span class="a">· playground</span></h1>
+      <div class="sub">lint governed KCP skills in your browser — the <b>real</b> linter, running live</div>
+    </div>
+    <span class="badge-live" id="liveBadge">● running bin/lint.mjs</span>
+  </header>
+
+  <p class="lede">A <b>governed skill</b> is a <code>kind: skill</code> unit with an <code>action_scope</code> —
+    the tools, paths, and capabilities it may enact (<a style="color:var(--teal-soft)" href="https://github.com/Cantara/knowledge-context-protocol">KCP v0.26 §4.3a</a>).
+    It <b>fails closed</b>: no explicit grant, no action. Edit the manifest below — or load a conformance vector —
+    and the actual <code>lintManifest()</code> from <code>bin/lint.mjs</code> runs on every keystroke.</p>
+
+  <div class="vectors">
+    <span class="vlabel">load a vector:</span>
+    <span class="chip" data-v="01-minimal-valid">01 · minimal-valid</span>
+    <span class="chip" data-v="02-ungoverned-skill">02 · ungoverned</span>
+    <span class="chip" data-v="03-absolute-path">03 · absolute-path</span>
+    <span class="chip" data-v="04-bad-field-types">04 · bad-field-types</span>
+    <span class="chip" data-v="05-non-skill-kinds-untouched">05 · non-skill-kinds</span>
+    <span class="chip runall" id="runAll">▶ run all vectors</span>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="hd"><span>manifest · <span id="mfName">knowledge.yaml</span></span><span id="vExpect"></span></div>
+      <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+    </div>
+    <div class="card">
+      <div class="hd">linter verdict</div>
+      <div class="summary" id="summary"></div>
+      <div class="findings" id="findings"></div>
+      <div class="gate" id="gate"></div>
+    </div>
+  </div>
+
+  <details class="legend">
+    <summary>The rules — SK001–SK008 (v0.1 profile)</summary>
+    <div class="rule"><span class="rc e">SK001</span><span>Skill unit must declare <code>id</code>, <code>path</code>, and <code>intent</code>. <span style="color:var(--faint)">(error)</span></span></div>
+    <div class="rule"><span class="rc w">SK002</span><span>No <code>action_scope</code> — the skill is ungoverned; declare its envelope. <span style="color:var(--faint)">(warning)</span></span></div>
+    <div class="rule"><span class="rc e">SK003</span><span><code>action_scope</code> must be a mapping; each field an array of non-empty strings. <span style="color:var(--faint)">(error)</span></span></div>
+    <div class="rule"><span class="rc e">SK004</span><span><code>paths</code> entries must be relative — no absolute paths, no <code>..</code> traversal. <span style="color:var(--faint)">(error)</span></span></div>
+    <div class="rule"><span class="rc w">SK005</span><span>Unknown <code>action_scope</code> field — carried, not enforced. <span style="color:var(--faint)">(warning)</span></span></div>
+    <div class="rule"><span class="rc w">SK006</span><span><code>audience</code> should include <code>agent</code> to be agent-selectable. <span style="color:var(--faint)">(warning)</span></span></div>
+    <div class="rule"><span class="rc i">SK007</span><span><code>capabilities</code> empty/omitted — <b>fail-closed default</b>: the skill renders pointer-only. <span style="color:var(--faint)">(info)</span></span></div>
+    <div class="rule"><span class="rc w">SK008</span><span><code>intent</code> should read as a question or task description. <span style="color:var(--faint)">(warning)</span></span></div>
+  </details>
+
+  <div class="foot">
+    <b>The real linter, live.</b> This page runs <code>lintManifest()</code> verbatim from
+    <a href="https://github.com/Cantara/kcp-skill/blob/main/bin/lint.mjs">bin/lint.mjs</a> — the same function the
+    repo's CI and any consumer's conformance suite run. The five vectors are the shipped
+    <a href="https://github.com/Cantara/kcp-skill/tree/main/vectors">vectors/</a>; loading one and clicking “run all” checks the
+    live verdict against each <code>expected.json</code>.<br>
+    <a href="https://github.com/Cantara/kcp-skill">Cantara/kcp-skill</a> ·
+    <a href="https://github.com/Cantara/kcp-skill/blob/main/PROFILE.md">authoring profile</a> ·
+    <a href="https://github.com/Cantara/knowledge-context-protocol">KCP spec</a> ·
+    runtime enforcement: <a href="https://github.com/Cantara/pi-kcp">pi-kcp</a> / <a href="https://github.com/Cantara/kcp-harness">kcp-harness</a>
+  </div>
+</div>
+
+<script>
+// ── The REAL linter — lintManifest() copied verbatim from bin/lint.mjs (pure; no node deps) ──
+const KNOWN_SCOPE_FIELDS = new Set(["tools", "paths", "capabilities"]);
+function lintManifest(doc) {
+  const findings = [];
+  const add = (level, code, unitId, message) => findings.push({ level, code, unit: unitId ?? null, message });
+  if (!doc || typeof doc !== "object" || !Array.isArray(doc.units)) {
+    return { findings: [{ level: "error", code: "PARSE", unit: null, message: "manifest has no top-level units list" }] };
+  }
+  for (const unit of doc.units) {
+    if (!unit || typeof unit !== "object") continue;
+    if (unit.kind !== "skill") continue;
+    const id = typeof unit.id === "string" && unit.id ? unit.id : "(missing id)";
+    for (const field of ["id", "path", "intent"]) {
+      if (typeof unit[field] !== "string" || !unit[field].trim()) add("error", "SK001", id, `skill unit must declare '${field}'`);
+    }
+    const scope = unit.action_scope;
+    if (scope === undefined || scope === null) {
+      add("warning", "SK002", id, "no action_scope — this skill is ungoverned; declare its envelope");
+    } else if (typeof scope !== "object" || Array.isArray(scope)) {
+      add("error", "SK003", id, "action_scope must be a mapping");
+    } else {
+      for (const [key, value] of Object.entries(scope)) {
+        if (!KNOWN_SCOPE_FIELDS.has(key)) { add("warning", "SK005", id, `unknown action_scope field '${key}' (carried, not enforced)`); continue; }
+        if (!Array.isArray(value) || value.some((v) => typeof v !== "string" || !v.trim())) { add("error", "SK003", id, `action_scope.${key} must be an array of non-empty strings`); continue; }
+        if (key === "paths") {
+          for (const p of value) {
+            if (p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p) || p.split(/[\\/]/).includes("..")) add("error", "SK004", id, `action_scope.paths entry '${p}' must be relative and must not contain '..'`);
+          }
+        }
+      }
+      if (!("capabilities" in scope) || (Array.isArray(scope.capabilities) && scope.capabilities.length === 0)) add("info", "SK007", id, "capabilities empty/omitted — fail-closed default");
+    }
+    const audience = unit.audience;
+    if (!Array.isArray(audience) || !audience.includes("agent")) add("warning", "SK006", id, "audience should include 'agent'");
+    if (typeof unit.intent === "string" && unit.intent.trim()) {
+      const intent = unit.intent.trim();
+      const taskLike = intent.endsWith("?") || /^(how|what|when|where|why|deploy|rotate|bump|release|run|create|update|verify|migrate|publish|sign|fix)\b/i.test(intent);
+      if (!taskLike) add("warning", "SK008", id, "intent should read as a question or task description");
+    }
+  }
+  return { findings };
+}
+function summarize(f){const c=l=>f.filter(x=>x.level===l).length;return{errors:c("error"),warnings:c("warning"),infos:c("info")};}
+
+// ── conformance vectors (shipped vectors/*, embedded as data) ──
+const VECTORS = {
+"01-minimal-valid":{codes:[],yaml:`kcp_version: "0.26"
+project: vectors
+version: 1.0.0
+language: en
+units:
+  - id: rotate-signing-key
+    path: skills/rotate-signing-key/SKILL.md
+    kind: skill
+    intent: "How do I rotate the manifest signing key safely?"
+    scope: project
+    audience: [agent, operator]
+    action_scope:
+      tools: [kcp-sign, git]
+      paths: ["schema/**", ".well-known/kcp-signing-key"]
+      capabilities: [key-management]`},
+"02-ungoverned-skill":{codes:["SK002"],yaml:`kcp_version: "0.26"
+project: vectors
+version: 1.0.0
+language: en
+units:
+  - id: deploy
+    path: skills/deploy/SKILL.md
+    kind: skill
+    intent: "Deploy the service to staging"
+    scope: project
+    audience: [agent]`},
+"03-absolute-path":{codes:["SK004","SK004"],yaml:`kcp_version: "0.26"
+project: vectors
+version: 1.0.0
+language: en
+units:
+  - id: escape-artist
+    path: skills/escape/SKILL.md
+    kind: skill
+    intent: "How do I write outside the repo?"
+    scope: project
+    audience: [agent]
+    action_scope:
+      tools: [bash]
+      paths: ["/etc/passwd", "src/../../other-repo/**"]`},
+"04-bad-field-types":{codes:["SK001","SK001","SK003","SK003","SK005"],yaml:`kcp_version: "0.26"
+project: vectors
+version: 1.0.0
+language: en
+units:
+  - id: sloppy
+    kind: skill
+    scope: project
+    audience: [agent]
+    action_scope:
+      tools: "git"
+      paths: ["ok/**", ""]
+      rate_limit: 5`},
+"05-non-skill-kinds-untouched":{codes:[],yaml:`kcp_version: "0.26"
+project: vectors
+version: 1.0.0
+language: en
+units:
+  - id: security
+    path: SECURITY.md
+    kind: policy
+    intent: "Security Policy"
+    scope: global
+    audience: [human]
+  - id: api-schema
+    path: openapi.yaml
+    kind: schema
+    intent: "API definition"
+    scope: project
+    audience: [agent]
+  - id: mystery
+    path: thing.md
+    kind: hologram
+    intent: "Unknown kind must be silently ignored"
+    scope: project
+    audience: [agent]`}
+};
+
+const DEFAULT_MANIFEST = `kcp_version: "0.26"
+project: my-repo
+version: 1.0.0
+language: en
+units:
+  # A well-formed governed skill: passes clean. Try deleting a field,
+  # emptying capabilities (watch SK007 flip it to fail-closed), or
+  # adding an absolute path (SK004).
+  - id: release-and-tag
+    path: skills/release-and-tag/SKILL.md
+    kind: skill
+    intent: "How do I cut a release safely?"
+    scope: project
+    audience: [agent, operator]
+    action_scope:
+      tools: [read, bash, git]
+      paths: ["pom.xml", "CHANGELOG.md"]
+      capabilities: [release]`;
+
+// ── UI ──
+const ed = document.getElementById("editor");
+const $ = id => document.getElementById(id);
+function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+function render(){
+  let doc, parseErr=null;
+  try { doc = jsyaml.load(ed.value); } catch(e){ parseErr = e.message; }
+  const findings = parseErr ? [{level:"error",code:"PARSE",unit:null,message:"YAML parse error: "+parseErr}] : lintManifest(doc).findings;
+  const s = summarize(findings);
+  // summary pills
+  $("summary").innerHTML =
+    `<span class="pill e ${s.errors?'on':''}">${s.errors} error${s.errors!==1?'s':''}</span>`+
+    `<span class="pill w ${s.warnings?'on':''}">${s.warnings} warning${s.warnings!==1?'s':''}</span>`+
+    `<span class="pill i ${s.infos?'on':''}">${s.infos} info</span>`+
+    (s.errors===0 ? `<span class="pill ok">exit 0 · passes</span>` : `<span class="pill e on">exit 1 · fails</span>`);
+  // findings
+  $("findings").innerHTML = findings.length
+    ? findings.map(f=>`<div class="f"><span class="lvl ${f.level}">${f.level}</span><span class="code">${f.code}</span><span class="msg"><span class="u">${esc(f.unit||"-")}</span> — ${esc(f.message)}</span></div>`).join("")
+    : `<div class="clean">✓ no findings — every governed skill here is well-formed &amp; fail-closed</div>`;
+  // fail-closed gate card (per skill unit)
+  renderGate(doc, parseErr);
+}
+
+function renderGate(doc, parseErr){
+  const g = $("gate");
+  if(parseErr || !doc || !Array.isArray(doc.units)){ g.innerHTML=""; return; }
+  const skills = doc.units.filter(u=>u&&u.kind==="skill");
+  if(!skills.length){ g.innerHTML=`<h4>enactability</h4><div style="color:var(--faint);font-size:12.5px">no <code>kind: skill</code> units — nothing to govern here.</div>`; return; }
+  const rows = skills.map(u=>{
+    const id = (typeof u.id==="string"&&u.id)?u.id:"(missing id)";
+    const sc = u.action_scope;
+    let badge, why;
+    if(sc===undefined||sc===null){ badge=`<span class="badge ungov">ungoverned</span>`; why="no envelope (SK002)"; }
+    else if(typeof sc!=="object"||Array.isArray(sc)){ badge=`<span class="badge ungov">malformed</span>`; why="action_scope not a mapping (SK003)"; }
+    else {
+      const caps = sc.capabilities;
+      const failClosed = !("capabilities" in sc) || (Array.isArray(caps)&&caps.length===0);
+      if(failClosed){ badge=`<span class="badge closed">fail-closed</span>`; why="pointer-only · invocation: explicit (SK007)"; }
+      else { badge=`<span class="badge grant">grantable</span>`; why="a human may flip eligibility"; }
+    }
+    return `<div class="unit"><span class="uid">${esc(id)}</span>${badge}<span class="why">${why}</span></div>`;
+  }).join("");
+  g.innerHTML = `<h4>enactability — the charter vs. the pointer</h4>${rows}`;
+}
+
+let vExpect=null;
+function loadVector(name){
+  const v = VECTORS[name]; if(!v) return;
+  ed.value = v.yaml; $("mfName").textContent = name+"/manifest.yaml"; vExpect = v.codes;
+  render(); showVectorMatch(name);
+}
+function showVectorMatch(name){
+  const v = VECTORS[name];
+  let doc; try{ doc = jsyaml.load(ed.value); }catch(e){ $("vExpect").innerHTML=""; return; }
+  const got = lintManifest(doc).findings.filter(f=>f.level!=="info").map(f=>f.code).sort();
+  const exp = v.codes.slice().sort();
+  const ok = JSON.stringify(got)===JSON.stringify(exp);
+  $("vExpect").innerHTML = `<span class="vmatch ${ok?'ok':'bad'}">${ok?'✓':'✗'} expected [${exp.join(', ')||'—'}] · got [${got.join(', ')||'—'}]</span>`;
+}
+function clearVectorMatch(){ $("vExpect").innerHTML=""; }
+
+document.querySelectorAll('.chip[data-v]').forEach(c=>c.addEventListener('click',()=>loadVector(c.dataset.v)));
+$("runAll").addEventListener('click',()=>{
+  const lines = Object.entries(VECTORS).map(([name,v])=>{
+    const doc = jsyaml.load(v.yaml);
+    const got = lintManifest(doc).findings.filter(f=>f.level!=="info").map(f=>f.code).sort();
+    const exp = v.codes.slice().sort();
+    const ok = JSON.stringify(got)===JSON.stringify(exp);
+    return {name,ok,exp,got};
+  });
+  const pass = lines.filter(l=>l.ok).length;
+  $("mfName").textContent = "conformance run"; ed.value = lines.map(l=>`${l.ok?'ok  ':'FAIL'} ${l.name}  expected [${l.exp}] got [${l.got}]`).join("\n")+`\n\n${pass}/${lines.length} vectors pass`;
+  $("summary").innerHTML = `<span class="pill ok">${pass}/${lines.length} conformance vectors pass</span>`;
+  $("findings").innerHTML = `<div class="clean">the live linter matches every shipped expected.json — this is the conformance suite, running in your browser</div>`;
+  $("gate").innerHTML = ""; $("vExpect").innerHTML=""; $("mfName").textContent="conformance run";
+});
+
+let t=null;
+ed.addEventListener('input',()=>{ clearVectorMatch(); clearTimeout(t); t=setTimeout(render,180); });
+ed.value = DEFAULT_MANIFEST;
+render();
+</script>
+</body>
+</html>
