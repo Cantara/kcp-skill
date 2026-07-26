@@ -1,0 +1,48 @@
+# kcp-skill is KCP-adopted: this manifest makes the governed-skill layer
+# navigable by any KCP agent. The curated library itself lives in
+# skills/library.yaml and is reachable as a unit here.
+kcp_version: "0.26"
+project: kcp-skill
+version: 0.1.0
+language: en
+
+trust:
+  provenance:
+    publisher: "eXOReaction AS / Cantara"
+
+units:
+  - id: front-door
+    path: README.md
+    kind: knowledge
+    intent: "What is kcp-skill and which layer of the KCP stack does it own?"
+    scope: global
+    audience: [agent, human]
+    triggers: [overview, linter, vectors, library, governed-skill]
+
+  - id: authoring-profile
+    path: PROFILE.md
+    kind: policy
+    intent: "What does a well-authored governed skill unit look like (action_scope as a firewall rule)?"
+    scope: global
+    audience: [agent, human]
+    triggers: [authoring, profile, action_scope, envelope, conventions, SK001]
+
+  - id: skill-library
+    path: skills/library.yaml
+    kind: schema
+    intent: "Which curated governed skills are available to merge or federate into a project manifest?"
+    scope: global
+    audience: [agent]
+    triggers: [library, curated, skills, rotate-signing-key, dependency-bump, release-and-tag]
+
+signing:
+  scheme: ed25519
+  scope: this-manifest
+  public_key: "MCowBQYDK2VwAyEAuipgusnqU9vjf3p2yPVLD/DmERT6tBbLOqEETdxAhMU="
+  signature: "https://raw.githubusercontent.com/Cantara/kcp-skill/main/knowledge.yaml.sig"
+
+# Serving Endpoint Binding (KCP SPEC v0.26 §3.12): authoritative manifest URL.
+# Ignored by pre-0.26 verifiers.
+serving:
+  manifest:
+    - https://raw.githubusercontent.com/Cantara/kcp-skill/main/knowledge.yaml
