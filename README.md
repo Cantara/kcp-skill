@@ -73,10 +73,23 @@ Exit codes: `0` clean or warnings only · `1` errors · `2` usage/parse failure.
 | SK006 | warning | `audience` should include `agent` — a skill no agent may select is dead weight |
 | SK007 | info | empty/omitted `capabilities` is the fail-closed default — nothing to fix |
 | SK008 | warning | `intent` should read as a question or task ("How do I …", "Deploy …") |
+| SK009 | info | how many units were **not** checked, by kind — coverage, not a defect |
 
 Non-`skill` kinds are **never** flagged by this linter — `policy`, `schema`, `service`,
 `executable` are valid spec kinds and none of the skill rules apply to them (§4.3:
 unknown kinds are silently ignored).
+
+They are, however, **counted**. Skipping silently makes "nothing was wrong with it" and
+"nothing looked at it" print the same output, so a manifest whose units are all
+`kind: knowledge` — including one that should have been `kind: skill` — reports a clean
+pass. SK009 says what was left alone:
+
+```
+info    SK009  -  644 unit(s) not checked — this profile governs kind: skill only (knowledge (kind unset)=644)
+0 error(s), 0 warning(s), 1 info
+```
+
+A unit with no `kind` counts as `knowledge`, per §4.3a's default.
 
 ## The library
 
