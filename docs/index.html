@@ -122,6 +122,19 @@
     </div>
   </div>
 
+  <div class="card" style="margin-top:16px">
+    <div class="hd"><span>✨ draft a governed skill <span style="color:var(--faint);text-transform:none;letter-spacing:0">— generation meets enforcement</span></span><span id="genStatus" style="color:var(--faint);text-transform:none;letter-spacing:0"></span></div>
+    <div style="padding:14px;display:grid;gap:10px">
+      <div style="color:var(--muted);font-size:13.5px">Describe a procedure. Claude drafts a <code style="color:var(--teal-soft);font-family:var(--mono)">kind: skill</code> manifest — fail-closed, minimal envelope — which drops into the editor above and lints <b>live</b>. Era V (generation) meeting Era IV (enforcement) in one box.</div>
+      <textarea id="genIntent" spellcheck="false" placeholder="e.g. rotate our TLS certificate and reload nginx, verifying the new cert before cutover" style="min-height:60px;border:1px solid var(--line);border-radius:8px"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="genKey" type="password" placeholder="sk-ant-…  (your Anthropic key)" autocomplete="off" style="flex:1 1 260px;min-width:200px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-family:var(--mono);font-size:12.5px;padding:9px 11px">
+        <button id="genBtn" class="chip runall" style="padding:9px 16px">✨ draft skill</button>
+      </div>
+      <div style="color:var(--faint);font-size:11.5px">🔒 Bring-your-own-key. Stored only in <b>this browser</b> (localStorage), sent <b>directly to api.anthropic.com</b> — never to us, Cantara, or GitHub. Nothing shared or logged.</div>
+    </div>
+  </div>
+
   <details class="legend">
     <summary>The rules — SK001–SK008 (v0.1 profile)</summary>
     <div class="rule"><span class="rc e">SK001</span><span>Skill unit must declare <code>id</code>, <code>path</code>, and <code>intent</code>. <span style="color:var(--faint)">(error)</span></span></div>
@@ -373,6 +386,61 @@ let t=null;
 ed.addEventListener('input',()=>{ clearVectorMatch(); clearTimeout(t); t=setTimeout(render,180); });
 ed.value = DEFAULT_MANIFEST;
 render();
+
+// ── ✨ draft a governed skill — window.claude (bring-your-own-key, direct to Anthropic) ──
+window.claude = {
+  complete: async function(prompt, opts={}){
+    const key = (localStorage.getItem("kcp_anthropic_key")||"").trim();
+    if(!key) throw new Error("Add your Anthropic API key first.");
+    const resp = await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true","content-type":"application/json"},
+      body:JSON.stringify({model:opts.model||"claude-sonnet-5",max_tokens:opts.max_tokens||900,messages:[{role:"user",content:prompt}]})
+    });
+    if(!resp.ok){ const e=await resp.json().catch(()=>({})); throw new Error(e.error?.message||("API error "+resp.status)); }
+    const d=await resp.json(); return d.content.map(b=>b.text||"").join("");
+  }
+};
+const genKey=$("genKey");
+genKey.value = localStorage.getItem("kcp_anthropic_key")||"";
+genKey.addEventListener("input",()=>localStorage.setItem("kcp_anthropic_key",genKey.value.trim()));
+
+const GEN_PROMPT = intent => `You are drafting a governed KCP skill unit (KCP v0.26 §4.3a) for the kcp-skill linter. Output a single YAML document with a top-level \`units:\` list containing EXACTLY ONE unit with \`kind: skill\`.
+
+Requirements the linter enforces:
+- id: kebab-case verb phrase (e.g. rotate-tls-cert)
+- path: skills/<id>/SKILL.md
+- intent: one sentence phrased as a question or task ("How do I …" or an imperative like "Rotate …")
+- scope: project
+- audience: [agent, operator]
+- action_scope, authored like a firewall rule — minimal, add each entry only because a step needs it:
+    tools: named tools the steps actually invoke — prefer narrow tools (read, edit, git) over a bare bash
+    paths: RELATIVE globs only, for files the procedure WRITES — never absolute paths, never "..", never "**" at the repo root
+    capabilities: named privileges the procedure exercises (e.g. deploy, key-management, spend); OMIT or leave [] if none — empty is the fail-closed default
+
+Also include the manifest header: kcp_version: "0.26", project: my-repo, version: 1.0.0, language: en.
+Output ONLY the YAML — no prose, no explanation, no markdown code fences.
+
+Procedure to model: ${intent}`;
+
+function stripFences(t){ return String(t).replace(/^\s*```[a-z]*\s*/i,"").replace(/```\s*$/,"").trim(); }
+$("genBtn").addEventListener("click", async ()=>{
+  const intent = $("genIntent").value.trim();
+  const st = $("genStatus");
+  if(!intent){ st.textContent="describe a procedure first"; $("genIntent").focus(); return; }
+  if(!(localStorage.getItem("kcp_anthropic_key")||"").trim()){ st.textContent="add your Anthropic key →"; genKey.focus(); return; }
+  $("genBtn").disabled=true; st.textContent="drafting…";
+  try{
+    const out = await window.claude.complete(GEN_PROMPT(intent), {max_tokens:900});
+    const yamlText = stripFences(out);
+    let doc; try{ doc=jsyaml.load(yamlText); }catch(e){ throw new Error("model returned unparseable YAML — try again"); }
+    if(!doc || !Array.isArray(doc.units)) throw new Error("draft had no units list — try again");
+    ed.value = yamlText; $("mfName").textContent="drafted skill"; clearVectorMatch(); render();
+    st.textContent="✓ drafted — lints live above";
+    document.querySelector(".grid").scrollIntoView({behavior:"smooth",block:"start"});
+  }catch(e){ st.textContent="✗ "+e.message; }
+  finally{ $("genBtn").disabled=false; }
+});
 </script>
 </body>
 </html>
