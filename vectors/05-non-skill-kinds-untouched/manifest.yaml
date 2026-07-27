@@ -1,4 +1,4 @@
-kcp_version: "0.26"
+kcp_version: "0.29"
 project: vectors
 version: 1.0.0
 language: en
@@ -21,3 +21,20 @@ units:
     intent: "Unknown kind must be silently ignored"
     scope: project
     audience: [agent]
+  # v0.29 (RFC-0027). A playbook carries `steps`, a nested structure no earlier kind had,
+  # and its steps reference kind: skill units — so it is the kind most likely to be
+  # mistaken for this profile's business. It is not: this profile governs kind: skill
+  # only, and SK009 must report the playbook as unchecked rather than applying skill
+  # rules to it.
+  - id: promote-release
+    path: playbooks/promote.md
+    kind: playbook
+    intent: "How do we promote a verified build?"
+    scope: project
+    audience: [agent, operator]
+    steps:
+      - id: verify
+        uses: run-test-suite
+        authority_level: observe
+        success_condition: "zero failures reported by the suite"
+        on_failure: abort

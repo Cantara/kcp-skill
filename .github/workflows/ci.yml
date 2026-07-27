@@ -15,6 +15,8 @@ jobs:
         with:
           node-version: '24'
       - run: npm install --no-audit --no-fund
+      - name: Vocabulary (playbook names a protocol kind, §4.3b)
+        run: node bin/check-vocabulary.mjs
       - name: Conformance vectors
         run: node bin/lint.mjs --vectors
       - name: Library is clean

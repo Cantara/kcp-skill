@@ -17,7 +17,8 @@
   ],
   "scripts": {
     "lint": "node bin/lint.mjs skills/library.yaml",
-    "test": "node bin/lint.mjs --vectors && node bin/lint.mjs skills/library.yaml"
+    "test": "node bin/check-vocabulary.mjs && node bin/lint.mjs --vectors && node bin/lint.mjs skills/library.yaml",
+    "check:vocabulary": "node bin/check-vocabulary.mjs"
   },
   "engines": {
     "node": ">=20"

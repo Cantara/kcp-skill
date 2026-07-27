@@ -34,7 +34,7 @@ below the producers/consumers:
 | **Authoring conventions** (what a *good* skill unit looks like) | **this repo — [PROFILE.md](PROFILE.md)** |
 | **Linter** (are your skill units well-formed and fail-closed?) | **this repo — `bin/lint.mjs`** |
 | **Conformance vectors** (test your producer/consumer against expected verdicts) | **this repo — `vectors/`** |
-| **Curated skill library** (governed playbooks any harness can adopt) | **this repo — `skills/`** |
+| **Curated skill library** (governed procedures any harness can adopt) | **this repo — `skills/`** |
 | Runtime enforcement of `action_scope` | [pi-kcp](https://github.com/Cantara/pi-kcp), [kcp-harness](https://github.com/Cantara/kcp-harness) |
 | Selection/planning over skill units | [kcp-agent](https://github.com/Cantara/kcp-agent) |
 | Evidence-based generation of skill units | [Synthesis](https://github.com/exoreaction/Synthesis) ([#477](https://github.com/exoreaction/Synthesis/issues/477)) |
@@ -93,7 +93,7 @@ A unit with no `kind` counts as `knowledge`, per §4.3a's default.
 
 ## The library
 
-Each skill in `skills/` is a directory with a `SKILL.md` playbook; `skills/library.yaml`
+Each skill in `skills/` is a directory with a `SKILL.md` procedure body; `skills/library.yaml`
 declares them all as spec-conformant units, ready to merge into a project manifest or to
 reference from a federated root.
 
