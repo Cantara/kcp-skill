@@ -84,6 +84,13 @@ than no skill — the agent enacts confidently. (This repo's CI lints the librar
 push; that catches shape, not truth. Truth needs periodic human re-validation, or a
 producer that verifies declarations against evidence.)
 
+CI also enforces **colocation** (`scripts/check-colocation.sh`): a diff that edits a
+`SKILL.md` without touching `skills/library.yaml` fails. A procedure and its declared
+`action_scope` are two files; nothing else made them move together, and drift between
+"what the steps do" and "what the envelope permits" is exactly the failure mode this
+profile exists to prevent — a rule that isn't checked at diff time isn't enforced, it's
+a suggestion.
+
 ## 7. Portability
 
 Write tool names against the harness-neutral vocabulary where possible (`read`, `bash`,
