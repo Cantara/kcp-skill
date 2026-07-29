@@ -1,7 +1,7 @@
 {
   "name": "@cantara/kcp-skill",
-  "version": "0.3.0",
-  "description": "Conventions, linter, conformance vectors, and a curated library for governed KCP skills (kind: skill + action_scope, KCP v0.26 §4.3a)",
+  "version": "0.4.0",
+  "description": "Conventions, linter, conformance vectors, and a curated library for governed KCP skills (kind: skill + action_scope, KCP v0.26 \u00a74.3a)",
   "type": "module",
   "license": "Apache-2.0",
   "bin": {
