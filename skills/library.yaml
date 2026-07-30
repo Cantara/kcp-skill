@@ -1,6 +1,8 @@
 # kcp-skill curated library — merge these units into a project manifest, or
-# reference this file from a federated root. Spec: KCP v0.26 §4.3a.
-kcp_version: "0.26"
+# reference this file from a federated root. Spec: KCP v0.30 §4.3a + RFC-0028:
+# without an explicit load_eligible grant a governed skill fails closed and renders
+# pointer-only, so the grant ships with the library.
+kcp_version: "0.30"
 project: kcp-skill-library
 version: 0.1.0
 language: en
@@ -12,6 +14,7 @@ units:
     scope: project
     audience: [agent, operator]
     triggers: [rotate, signing-key, ed25519, key-rotation]
+    load_eligible: true
     action_scope:
       tools: [kcp-sign, git]
       paths: ["knowledge.yaml", "knowledge.yaml.sig", ".well-known/kcp-signing-key"]
@@ -24,6 +27,7 @@ units:
     scope: project
     audience: [agent, operator]
     triggers: [dependency, bump, upgrade, pin, renovate]
+    load_eligible: true
     action_scope:
       tools: [read, bash, git]
       paths: ["pom.xml", "package.json", "package-lock.json", "bun.lock", "go.mod", "go.sum", "Cargo.toml", "Cargo.lock", "requirements*.txt", ".github/workflows/**"]
@@ -36,6 +40,7 @@ units:
     scope: project
     audience: [agent, operator]
     triggers: [release, tag, version, changelog]
+    load_eligible: true
     action_scope:
       tools: [read, bash, edit, git]
       paths: ["pom.xml", "package.json", "CHANGELOG.md", "RELEASE.md"]

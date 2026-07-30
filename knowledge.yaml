@@ -35,6 +35,59 @@ units:
     audience: [agent]
     triggers: [library, curated, skills, rotate-signing-key, dependency-bump, release-and-tag]
 
+  # The library's three skills, governed in this repo's own manifest. The README used
+  # rotate-signing-key as its worked example of a governed unit while the manifest never
+  # declared it — the conventions repo now follows its own convention. Tool vocabulary is
+  # the library's own (command-level), per PROFILE.md.
+
+  - id: rotate-signing-key
+    path: skills/rotate-signing-key/SKILL.md
+    kind: skill
+    intent: "How do I rotate the manifest signing key safely, with no window where consumers see an unverifiable manifest?"
+    scope: project
+    audience: [agent, operator]
+    triggers: [rotate, signing-key, ed25519, key-rotation]
+    load_eligible: true
+    action_scope:
+      tools: [kcp-sign, git]
+      paths: ["knowledge.yaml", "knowledge.yaml.sig", ".well-known/kcp-signing-key"]
+      capabilities: [key-management]
+    content_hash:
+      algorithm: sha256
+      value: "7ca22ce0a89942ab0d5923199adfc2cf6cb26eac4f96925ea0a439bf288ae2dd"
+
+  - id: dependency-bump
+    path: skills/dependency-bump/SKILL.md
+    kind: skill
+    intent: "How do I bump one dependency pin and prove the project still holds, before merge?"
+    scope: project
+    audience: [agent, operator]
+    triggers: [dependency, bump, upgrade, pin, renovate]
+    load_eligible: true
+    action_scope:
+      tools: [read, bash, git]
+      paths: ["pom.xml", "package.json", "package-lock.json", "bun.lock", "go.mod", "go.sum", "Cargo.toml", "Cargo.lock", "requirements*.txt", ".github/workflows/**"]
+      capabilities: []
+    content_hash:
+      algorithm: sha256
+      value: "9c670e82459a14be373f6193b2c59f1e60c0a797df1025fb948a6779136cb4c4"
+
+  - id: release-and-tag
+    path: skills/release-and-tag/SKILL.md
+    kind: skill
+    intent: "How do I cut a release — version bump, changelog, tag — without shipping an unverified artifact?"
+    scope: project
+    audience: [agent, operator]
+    triggers: [release, tag, version, changelog]
+    load_eligible: true
+    action_scope:
+      tools: [read, bash, edit, git]
+      paths: ["pom.xml", "package.json", "CHANGELOG.md", "RELEASE.md"]
+      capabilities: [release]
+    content_hash:
+      algorithm: sha256
+      value: "6490cd219b643fb9e95a6751bf788fcfc7fd8bc4fcbd9001caad147c4cfff401"
+
 signing:
   scheme: ed25519
   scope: this-manifest

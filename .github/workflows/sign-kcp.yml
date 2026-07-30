@@ -4,6 +4,9 @@ on:
   push:
     branches: [main, master]
     paths: [knowledge.yaml]
+  # Manual trigger, runnable against any ref — so a manifest changed on a branch can be
+  # re-signed before merge rather than only after (same pattern as pi-kcp).
+  workflow_dispatch:
 
 jobs:
   sign:
